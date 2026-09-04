@@ -27,18 +27,19 @@ jobs:
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           cat << 'EOF' > process_report.py
           import os
           import json
-          import yaml
+          from datetime import datetime
           from google.oauth2.service_account import Credentials
           from googleapiclient.discovery import build
 
-          # Setup credentials
           gcp_key_str = os.environ.get("GCP_SA_KEY")
           spreadsheet_id = os.environ.get("SPREADSHEET_ID")
           issue_body = os.environ.get("ISSUE_BODY", "")
+          issue_number = os.environ.get("ISSUE_NUMBER", "")
 
           if not gcp_key_str or not spreadsheet_id:
               print("Missing GCP_SA_KEY or SPREADSHEET_ID secrets.")
@@ -46,35 +47,44 @@ jobs:
 
           # Parse Google Credentials
           creds_dict = json.loads(gcp_key_str)
-          scopes = ["https://docs.google.com/spreadsheets/d/1FnV2fpotARUuDkb6AJoHYKT0iZyE-rgQxUudJxm7IRw/edit?pli=1&gid=0#gid=0"]
+          scopes = ["https://www.googleapis.com/auth/spreadsheets"]
           creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
           service = build('sheets', 'v4', credentials=creds)
 
-          # Parse Issue Body Markdown Form Data
+          # Parse Markdown Form Headers
           parsed_data = {}
           current_key = None
           
           for line in issue_body.splitlines():
-              if line.startswith("### "):
-                  current_key = line.replace("### ", "").strip()
+              line_str = line.strip()
+              if line_str.startswith("### "):
+                  current_key = line_str.replace("### ", "").strip()
                   parsed_data[current_key] = ""
-              elif current_key and line.strip() != "_No response_":
-                  parsed_data[current_key] += line.strip() + " "
+              elif current_key and line_str and line_str != "_No response_":
+                  parsed_data[current_key] += line_str + " "
 
-          # Mapping parsed data to target schema
+          def get_field(possible_keys):
+              for key_search in possible_keys:
+                  for actual_key in parsed_data:
+                      if key_search.lower() in actual_key.lower():
+                          return parsed_data[actual_key].strip()
+              return ""
+
+          today_str = datetime.now().strftime("%Y-%m-%d")
+
+          # Mapping fields matching Sheet1!A:I
           row_data = [
-              parsed_data.get("Report ID", "").strip(),
-              parsed_data.get("Employee ID", "").strip(),
-              parsed_data.get("Report Date", "").strip(),
-              parsed_data.get("Achievements", "").strip(),
-              parsed_data.get("Challenges", "").strip(),
-              parsed_data.get("Solutions", "").strip(),
-              parsed_data.get("Is Resolved?", "").strip(),
-              parsed_data.get("Management Support Needed?", "").strip(),
-              "No" # Default IsCommentSeen
+              f"REP-{issue_number}",                                      # ReportID
+              get_field(["empID", "المعرف الوظيفي", "Employee ID"]),      # empID
+              today_str,                                                 # RepDate
+              get_field(["Achievement", "الإنجازات اليومية"]),            # Achievement
+              get_field(["Challenges", "التحديات والعرقلات"]),             # Challenges
+              get_field(["Solution", "الحلول المقترحة"]),                 # Solution
+              get_field(["IsResolved", "تم حل التحدي"]),                   # IsResolved
+              get_field(["ManageCo", "توجيهات أو ملاحظات"]),               # ManageCo
+              "No"                                                       # IsCommentSeen
           ]
 
-          # Append row to Sheet1
           body = {'values': [row_data]}
           result = service.spreadsheets().values().append(
               spreadsheetId=spreadsheet_id,
@@ -83,6 +93,6 @@ jobs:
               body=body
           ).execute()
 
-          print(f"Appended {result.get('updates').get('updatedCells')} cells.")
+          print(f"Successfully added row to Google Sheet!")
           EOF
           python process_report.py
