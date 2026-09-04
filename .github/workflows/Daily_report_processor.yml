@@ -1,19 +1,14 @@
-name: Process Daily Reports to Excel
+name: Process Daily Report
 
 on:
   issues:
-    types: [opened, edited]
+    types: [opened]
 
 jobs:
   append-to-sheet:
-    if: contains(github.event.issue.labels.*.name, 'daily-report')
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      contents: read
-
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -24,87 +19,70 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install gspread google-auth
+          pip install google-api-python-client google-auth PyYAML
 
-      - name: Extract Data and Append to Google Sheet
+      - name: Process Issue and Append to Sheet
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
           ISSUE_BODY: ${{ github.event.issue.body }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          ISSUE_USER: ${{ github.event.issue.user.login }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
         run: |
-          python - << 'EOF'
+          cat << 'EOF' > process_report.py
           import os
           import json
-          import datetime
-          import gspread
+          import yaml
           from google.oauth2.service_account import Credentials
+          from googleapiclient.discovery import build
 
+          # Setup credentials
+          gcp_key_str = os.environ.get("GCP_SA_KEY")
+          spreadsheet_id = os.environ.get("SPREADSHEET_ID")
+          issue_body = os.environ.get("ISSUE_BODY", "")
+
+          if not gcp_key_str or not spreadsheet_id:
+              print("Missing GCP_SA_KEY or SPREADSHEET_ID secrets.")
+              exit(1)
+
+          # Parse Google Credentials
+          creds_dict = json.loads(gcp_key_str)
           scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-          service_account_info = json.loads(os.environ['GCP_SA_KEY'])
-          credentials = Credentials.from_service_account_info(service_account_info, scopes=scopes)
-          gc = gspread.authorize(credentials)
-          sheet = gc.open_by_key(os.environ['SPREADSHEET_ID']).sheet1
+          creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+          service = build('sheets', '4', credentials=creds)
 
-          issue_body = os.environ.get('ISSUE_BODY', '')
+          # Parse Issue Body Markdown Form Data
+          parsed_data = {}
+          current_key = None
+          
+          for line in issue_body.splitlines():
+              if line.startswith("### "):
+                  current_key = line.replace("### ", "").strip()
+                  parsed_data[current_key] = ""
+              elif current_key and line.strip() != "_No response_":
+                  parsed_data[current_key] += line.strip() + " "
 
-          def extract_field(label_name, text):
-              try:
-                  parts = text.split(f"### {label_name}")
-                  if len(parts) > 1:
-                      val = parts[1].split("###")[0].strip()
-                      if val and val.lower() != "_no response_":
-                          return val
-              except Exception:
-                  pass
-              return ""
-
-          report_id = f"REP-{os.environ['ISSUE_NUMBER']}"
-          emp_id = extract_field("المعرف الوظيفي (empID)", issue_body) or os.environ['ISSUE_USER']
-          rep_date = datetime.datetime.now().strftime("%Y-%m-%d")
-          achievement = extract_field("الإنجازات اليومية (Achievement)", issue_body)
-          challenges = extract_field("التحديات والعرقلات (Challenges)", issue_body)
-          solution = extract_field("الحلول المقترحة أو المتخذة (Solution)", issue_body)
-          is_resolved = extract_field("هل تم حل التحدي؟ (IsResolved)", issue_body) or "N/A"
-          manage_co = extract_field("توجيهات أو ملاحظات الإدارة (ManageCo)", issue_body)
-          is_comment_seen = "FALSE"
-
-          row = [
-              ReportID,
-              empID,
-              repDate,
-              Achievement,
-              Challenges,
-              Solution,
-              IsResolved,
-              ManageCo,
-              IsCommentSeen
+          # Mapping parsed data to target schema
+          row_data = [
+              parsed_data.get("Report ID", "").strip(),
+              parsed_data.get("Employee ID", "").strip(),
+              parsed_data.get("Report Date", "").strip(),
+              parsed_data.get("Achievements", "").strip(),
+              parsed_data.get("Challenges", "").strip(),
+              parsed_data.get("Solutions", "").strip(),
+              parsed_data.get("Is Resolved?", "").strip(),
+              parsed_data.get("Management Support Needed?", "").strip(),
+              "No" # Default IsCommentSeen
           ]
 
-          sheet.append_row(row)
-          print("تم ترحيل البيانات بنجاح!")
+          # Append row to Sheet1
+          body = {'values': [row_data]}
+          result = service.spreadsheets().values().append(
+              spreadsheetId=spreadsheet_id,
+              range="Sheet1!A:I",
+              valueInputOption="USER_ENTERED",
+              body=body
+          ).execute()
+
+          print(f"Appended {result.get('updates').get('updatedCells')} cells.")
           EOF
-
-      - name: Confirm and Close Issue
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const issue = context.payload.issue;
-            const user = issue.user.login;
-            
-            const commentBody = `✅ أهلاً @${user}، تم تسجيل التقرير بنجاح وتوثيقه في كشف الأكسل تحت رقم **#${issue.number}**.`;
-            
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue.number,
-              body: commentBody
-            });
-
-            await github.rest.issues.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue.number,
-              state: 'closed'
-            });
+          python process_report.py
