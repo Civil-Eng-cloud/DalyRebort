@@ -2,7 +2,7 @@ name: Process Daily Reports to Excel
 
 on:
   issues:
-    types: [opened]
+    types: [opened, edited]
 
 jobs:
   append-to-sheet:
@@ -71,15 +71,15 @@ jobs:
           is_comment_seen = "FALSE"
 
           row = [
-              report_id,
-              emp_id,
-              rep_date,
-              achievement,
-              challenges,
-              solution,
-              is_resolved,
-              manage_co,
-              is_comment_seen
+              ReportID,
+              empID,
+              repDate,
+              Achievement,
+              Challenges,
+              Solution,
+              IsResolved,
+              ManageCo,
+              IsCommentSeen
           ]
 
           sheet.append_row(row)
