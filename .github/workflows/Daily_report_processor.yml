@@ -46,9 +46,9 @@ jobs:
 
           # Parse Google Credentials
           creds_dict = json.loads(gcp_key_str)
-          scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+          scopes = ["https://docs.google.com/spreadsheets/d/1FnV2fpotARUuDkb6AJoHYKT0iZyE-rgQxUudJxm7IRw/edit?pli=1&gid=0#gid=0"]
           creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-          service = build('sheets', '4', credentials=creds)
+          service = build('sheets', 'v4', credentials=creds)
 
           # Parse Issue Body Markdown Form Data
           parsed_data = {}
