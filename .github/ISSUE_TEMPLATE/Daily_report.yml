@@ -1,0 +1,63 @@
+name: "📋 التقرير اليومي"
+description: "نموذج تقديم التقارير اليومية"
+title: "[تقرير] - "
+labels: ["daily-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        <div align="center">
+          <img src="https://https://drive.google.com/file/d/1Zpiy5ysXLMMza31nyRv6a8lCyf3kCw8N/view?usp=sharing" width="180" alt="شعار مهندسو إعادة إعمار" />
+          <h3><b>مهندسو إعادة إعمار</b></h3>
+        </div>
+        ---
+  - type: input
+    id: emp_id
+    attributes:
+      label: "المعرف الوظيفي (empID)"
+      placeholder: "أدخل الكود الوظيفي أو اسمك"
+    validations:
+      required: true
+
+  - type: textarea
+    id: achievement
+    attributes:
+      label: "الإنجازات اليومية (Achievement)"
+      placeholder: "اكتب الإنجازات التي تمت اليوم..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: challenges
+    attributes:
+      label: "التحديات والعرقلات (Challenges)"
+      placeholder: "ما هي المشاكل أو العرقلات التي واجهتك؟"
+    validations:
+      required: false
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: "الحلول المقترحة أو المتخذة (Solution)"
+      placeholder: "ما هي الحلول المتخذة أو المقترحة؟"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: is_resolved
+    attributes:
+      label: "هل تم حل التحدي؟ (IsResolved)"
+      options:
+        - "Yes"
+        - "No"
+        - "N/A"
+    validations:
+      required: true
+
+  - type: textarea
+    id: manage_co
+    attributes:
+      label: "توجيهات أو ملاحظات الإدارة (ManageCo)"
+      placeholder: "ملاحظات إضافية أو موجهة للإدارة"
+    validations:
+      required: false

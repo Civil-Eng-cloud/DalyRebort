@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام التقارير اليومية - تسجيل الدخول</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="login-container" id="loginBox">
+        <h2>تسجيل الدخول للنظام</h2>
+        <form id="loginForm">
+            <div class="input-group">
+                <label for="username">اسم المستخدم / البريد</label>
+                <input type="text" id="username" required placeholder="أدخل اسم المستخدم">
+            </div>
+            
+            <div class="input-group">
+                <label for="password">كلمة المرور</label>
+                <input type="password" id="password" required placeholder="أدخل كلمة المرور">
+            </div>
+
+            <button type="submit" id="loginBtn">دخول</button>
+        </form>
+        <p id="message" class="message"></p>
+    </div>
+
+    <div class="dashboard-container hidden" id="dashboard">
+        <header>
+            <h2 id="welcomeText">مرحباً بك</h2>
+            <button onclick="logout()" class="logout-btn">تسجيل الخروج</button>
+        </header>
+
+        <section id="employeeView" class="role-section hidden">
+            <h3>قسم الموظفين - التقارير اليومية</h3>
+            <div class="comments-box">
+                <h4>ملاحظات وتعليقات الوكيل:</h4>
+                <div id="agentComments">لا توجد ملاحظات جديدة.</div>
+            </div>
+            <form id="reportForm">
+                <h4>إدخال التقرير اليومي:</h4>
+                <textarea id="achievements" placeholder="أدخل الإنجازات اليومية..." required></textarea>
+                <textarea id="obstacles" placeholder="أدخل المعرقلات والمشاكل (إن وجدت)..."></textarea>
+                <button type="submit">إرسال التقرير</button>
+            </form>
+        </section>
+
+        <section id="agentView" class="role-section hidden">
+            <h3>قسم الوكلاء - مراجعة تقارير الموظفين</h3>
+            <div id="reportsList">
+                <p>جاري تحميل التقارير المرفوعة...</p>
+            </div>
+        </section>
+
+        <section id="managerView" class="role-section hidden">
+            <h3>قسم الإدارة - لوحة التحليلات والمعرقلات</h3>
+            <div class="stats-cards">
+                <div class="card">
+                    <h4>المعرقلات التراكمية المعلقة</h4>
+                    <p id="pendingObstaclesCount">0</p>
+                </div>
+                <div class="card">
+                    <h4>نسبة الإنجاز اليومي</h4>
+                    <p id="dailyCompletionRate">0%</p>
+                </div>
+            </div>
+            <div id="managerObstaclesList">
+                <h4>سجل المشاكل والمعرقلات:</h4>
+                </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

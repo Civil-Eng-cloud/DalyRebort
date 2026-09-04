@@ -1,0 +1,110 @@
+name: Process Daily Reports to Excel
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  append-to-sheet:
+    if: contains(github.event.issue.labels.*.name, 'daily-report')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install gspread google-auth
+
+      - name: Extract Data and Append to Google Sheet
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_USER: ${{ github.event.issue.user.login }}
+        run: |
+          python - << 'EOF'
+          import os
+          import json
+          import datetime
+          import gspread
+          from google.oauth2.service_account import Credentials
+
+          scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+          service_account_info = json.loads(os.environ['GCP_SA_KEY'])
+          credentials = Credentials.from_service_account_info(service_account_info, scopes=scopes)
+          gc = gspread.authorize(credentials)
+          sheet = gc.open_by_key(os.environ['SPREADSHEET_ID']).sheet1
+
+          issue_body = os.environ.get('ISSUE_BODY', '')
+
+          def extract_field(label_name, text):
+              try:
+                  parts = text.split(f"### {label_name}")
+                  if len(parts) > 1:
+                      val = parts[1].split("###")[0].strip()
+                      if val and val.lower() != "_no response_":
+                          return val
+              except Exception:
+                  pass
+              return ""
+
+          report_id = f"REP-{os.environ['ISSUE_NUMBER']}"
+          emp_id = extract_field("المعرف الوظيفي (empID)", issue_body) or os.environ['ISSUE_USER']
+          rep_date = datetime.datetime.now().strftime("%Y-%m-%d")
+          achievement = extract_field("الإنجازات اليومية (Achievement)", issue_body)
+          challenges = extract_field("التحديات والعرقلات (Challenges)", issue_body)
+          solution = extract_field("الحلول المقترحة أو المتخذة (Solution)", issue_body)
+          is_resolved = extract_field("هل تم حل التحدي؟ (IsResolved)", issue_body) or "N/A"
+          manage_co = extract_field("توجيهات أو ملاحظات الإدارة (ManageCo)", issue_body)
+          is_comment_seen = "FALSE"
+
+          row = [
+              report_id,
+              emp_id,
+              rep_date,
+              achievement,
+              challenges,
+              solution,
+              is_resolved,
+              manage_co,
+              is_comment_seen
+          ]
+
+          sheet.append_row(row)
+          print("تم ترحيل البيانات بنجاح!")
+          EOF
+
+      - name: Confirm and Close Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const user = issue.user.login;
+            
+            const commentBody = `✅ أهلاً @${user}، تم تسجيل التقرير بنجاح وتوثيقه في كشف الأكسل تحت رقم **#${issue.number}**.`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: commentBody
+            });
+
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              state: 'closed'
+            });
