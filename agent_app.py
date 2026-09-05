@@ -19,27 +19,27 @@ st.markdown("""
 # --- الاتصال بـ Google Sheets ---
 @st.cache_resource
 def init_google_sheets():
-    # جلب الاعتمادات من Secrets
+    # 1. جلب الاعتمادات من Secrets أو من متغيرات البيئة
     if "GCP_SA_KEY" in st.secrets:
         gcp_key = st.secrets["GCP_SA_KEY"]
     else:
         gcp_key = os.environ.get("GCP_SA_KEY")
 
-    # إذا كانت القيمة نصية JSON وليست Dictionary
+    # 2. التحقق من نوع البيانات وتحويلها إلى قاموس Python (dict)
     if isinstance(gcp_key, str):
         creds_dict = json.loads(gcp_key)
     else:
-        # تحويل SecretsAttr إلى Dictionary بايثون عادي
+        # إذا كان AttrDict من Streamlit Secrets نحوله مباشرة إلى dict
         creds_dict = dict(gcp_key)
 
-    # إصلاح ترميز الأسطر الجديدة في PEM
+    # 3. معالجة الأسطر الجديدة في المفتاح الخاص (private_key)
     if "private_key" in creds_dict:
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
+    # 4. إنشاء اعتمادات Google السحابية
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return build('sheets', 'v4', credentials=creds)
-
 try:
     service = init_google_sheets()
     SPREADSHEET_ID = os.environ.get("SPREADSHEET_ID") or st.secrets.get("SPREADSHEET_ID")
