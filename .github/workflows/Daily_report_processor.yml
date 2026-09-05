@@ -96,3 +96,8 @@ jobs:
           print(f"Successfully added row to Google Sheet!")
           EOF
           python process_report.py
+      - name: Close Issue Automatically
+        uses: peter-evans/close-issue@v3
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          comment: "تم ترحيل هذا التقرير بنجاح إلى Google Sheets وإغلاقه تلقائياً."
