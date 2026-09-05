@@ -19,11 +19,20 @@ st.markdown("""
 # --- الاتصال بـ Google Sheets ---
 @st.cache_resource
 def init_google_sheets():
-    gcp_key_str = os.environ.get("GCP_SA_KEY")
-    if not gcp_key_str and "GCP_SA_KEY" in st.secrets:
-        gcp_key_str = st.secrets["GCP_SA_KEY"]
-        
-    creds_dict = json.loads(gcp_key_str)
+    # جلب الاعتمادات من Secrets
+    if "GCP_SA_KEY" in st.secrets:
+        gcp_key = st.secrets["GCP_SA_KEY"]
+    else:
+        gcp_key = os.environ.get("GCP_SA_KEY")
+
+    # إذا كانت القيمة نصية JSON وليست Dictionary
+    if isinstance(gcp_key, str):
+        creds_dict = json.loads(gcp_key)
+    else:
+        # تحويل SecretsAttr إلى Dictionary بايثون عادي
+        creds_dict = dict(gcp_key)
+
+    # إصلاح ترميز الأسطر الجديدة في PEM
     if "private_key" in creds_dict:
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
